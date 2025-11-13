@@ -1,0 +1,60 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Flask instance folder (contains config and local DB)
+instance/
+
+# Database files
+football_calendar.db
+*.db
+
+# Env files for secrets
+.env
+.env.*
+
+# VS Code and IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and reports
+*.log
+*.pot
+*.mo
+
+# Coverage
+.coverage
+htmlcov/
+
+# pytest cache
+.pytest_cache/
+
+# Python bytecode
+*.pyc

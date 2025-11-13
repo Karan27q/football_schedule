@@ -1,0 +1,73 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #0e1e2f; color: #fff; }
+.topbar a { color: #fff; text-decoration: none; }
+.container { max-width: 1100px; margin: 20px auto; padding: 0 16px; }
+
+.toolbar { display: flex; align-items: center; gap: 10px; }
+.team-select { position: relative; display: inline-flex; gap: 8px; align-items: center; }
+.dropdown { position: absolute; top: 36px; left: 0; right: 0; background: #fff; border: 1px solid #ddd; border-radius: 6px; max-height: 240px; overflow: auto; z-index: 1000; }
+.dropdown-item { padding: 8px 10px; cursor: pointer; }
+.dropdown-item:hover { background: #f5f5f5; }
+
+/* Club grid styles: 4 columns responsive */
+.club-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0 20px 0; }
+.club-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: box-shadow 160ms ease; }
+.club-card:hover { box-shadow: 0 6px 18px rgba(15,22,30,0.08); }
+.club-card.expanded { background: #fbfbff; }
+.club-crest { width: 48px; height: 48px; object-fit: contain; align-self: center; }
+.club-name { font-weight: 600; text-align: center; }
+.club-content { font-size: 13px; color: #333; min-height: 36px; }
+.muted { color: #666; font-size: 13px; }
+.club-day { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #eee; }
+.club-day-label { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.club-match { font-size: 13px; color: #333; margin: 2px 0; }
+
+@media (max-width: 900px) {
+	.club-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 520px) {
+	.club-grid { grid-template-columns: repeat(1, 1fr); }
+}
+
+.btn { display: inline-block; padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px; background: #f7f7f7; color: #222; text-decoration: none; font-size: 14px; }
+.btn.primary { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+.btn:hover { filter: brightness(0.95); }
+.linklike { background: none; border: none; padding: 0; color: #0d6efd; cursor: pointer; }
+.linklike.danger { color: #b00020; }
+
+.flashes { list-style: none; padding: 0; margin: 0 0 12px 0; }
+.flash { padding: 8px 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid; }
+.flash.success { background: #e7f7ec; border-color: #9cd1a8; }
+.flash.info { background: #e7f1f7; border-color: #9cb7d1; }
+.flash.danger { background: #fbe9e7; border-color: #f5b0a4; }
+
+.calendar-controls { display: flex; align-items: center; gap: 12px; }
+.calendar-controls h2 { margin: 12px 0; }
+.selected-team { color: #222; }
+.empty-state { padding: 12px; background: #fffceb; border: 1px solid #f3e6a4; border-radius: 6px; margin-bottom: 12px; }
+
+.calendar { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.calendar th, .calendar td { border: 1px solid #e3e3e3; vertical-align: top; }
+.calendar th { background: #fafafa; padding: 8px; }
+.calendar td { height: 140px; padding: 8px; }
+.calendar .other-month { background: #fbfbfb; color: #888; }
+.date-label { font-weight: 600; margin-bottom: 6px; }
+
+.matches { display: flex; flex-direction: column; gap: 6px; }
+.match { display: flex; align-items: center; gap: 8px; padding: 4px; border-radius: 6px; border: 1px solid #f0f0f0; }
+.match.watched { opacity: 0.65; }
+.match .teams { font-weight: 500; }
+.match .kickoff, .match .competition { color: #666; font-size: 12px; margin-left: 6px; }
+.match .actions { margin-left: auto; display: inline-flex; gap: 8px; }
+.match form { display: inline; }
+
+.watch-toggle { display: inline-flex; align-items: center; gap: 6px; }
+.watch-toggle input[type="checkbox"] { width: 16px; height: 16px; }
+
+.form { max-width: 520px; display: grid; gap: 12px; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 14px; color: #333; }
+.field input { padding: 8px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+.actions { display: flex; gap: 8px; align-items: center; }

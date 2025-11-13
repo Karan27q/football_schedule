@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="calendar-controls">
+	<a class="btn" href="{{ url_for('calendar_view', year=prev_year, month=prev_month) }}">◀ Prev</a>
+	<h2>{{ year }} - {{ '%02d' % month }}</h2>
+	<a class="btn" href="{{ url_for('calendar_view', year=next_year, month=next_month) }}">Next ▶</a>
+</div>
+
+{% if selected_team_id %}
+	<p class="selected-team">Selected team: <strong>{{ selected_team_name }}</strong></p>
+{% else %}
+	<!-- Club grid: replaced the empty-state with a grid of club cards. JS will populate -->
+	<div id="club-grid" class="club-grid">
+		<p class="muted">Select a club to preview this month's calendar. Loading clubs…</p>
+	</div>
+{% endif %}
+
+{% if api_error %}
+	<div class="flash danger">{{ api_error }}</div>
+{% endif %}
+
+{% if selected_team_id %}
+	<!-- Debug info -->
+	<div style="font-size: 12px; color: #666; margin-bottom: 10px;">
+		Debug: {{ matches_by_day|length }} days with matches, {{ matches_by_day.keys()|list|length }} total
+	</div>
+{% endif %}
+
+<table class="calendar">
+	<thead>
+		<tr>
+			<th>Mon</th>
+			<th>Tue</th>
+			<th>Wed</th>
+			<th>Thu</th>
+			<th>Fri</th>
+			<th>Sat</th>
+			<th>Sun</th>
+		</tr>
+	</thead>
+	<tbody>
+		{% for week in rows %}
+		<tr>
+			{% for day in week %}
+				{% set is_current_month = (day.month == month) %}
+				<td class="day {% if not is_current_month %}other-month{% endif %}">
+					<div class="date-label">{{ day.day }}</div>
+					<div class="matches">
+						{% for m in matches_by_day.get(day, []) %}
+							<div class="match {% if m.watched %}watched{% endif %}">
+								<label class="watch-toggle">
+									<input type="checkbox" data-external-id="{{ m.external_id }}" {% if m.watched %}checked{% endif %} {% if not selected_team_id %}disabled{% endif %}>
+									<span class="check"></span>
+								</label>
+								<span class="teams">{{ m.home_team }} vs {{ m.away_team }}</span>
+								{% if m.kickoff_time %}
+									<span class="kickoff">@ {{ m.kickoff_time.strftime('%H:%M') }}</span>
+								{% endif %}
+								{% if m.competition %}
+									<span class="competition">• {{ m.competition }}</span>
+								{% endif %}
+							</div>
+						{% endfor %}
+					</div>
+				</td>
+			{% endfor %}
+		</tr>
+		{% endfor %}
+	</tbody>
+</table>
+{% endblock %}
