@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "${{ matrix.python-version }}"
 
       - name: Install dependencies
         run: |
@@ -31,5 +31,5 @@ jobs:
       - name: Syntax check (compile all .py)
         run: python -m compileall -q .
 
-      - name: Sanity: show Flask version
+      - name: Sanity show Flask version
         run: python -c "import flask; print('flask', flask.__version__)"
