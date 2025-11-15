@@ -5,6 +5,9 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, f
 from flask_sqlalchemy import SQLAlchemy
 import os
 import requests
+from dotenv import load_dotenv
+load_dotenv()
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key')
@@ -13,7 +16,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # football-data.org API token: https://www.football-data.org/
 # Set either the hardcoded token below OR environment variable FOOTBALL_DATA_API_TOKEN
-HARDCODED_FOOTBALL_API_TOKEN = '9c029a79cc6b4924b43048a50ab78cdc'  # <- place your token here if you prefer in-file config
+HARDCODED_FOOTBALL_API_TOKEN = ''  # <- place your token here if you prefer in-file config
 FOOTBALL_API_TOKEN = (HARDCODED_FOOTBALL_API_TOKEN or os.environ.get('FOOTBALL_DATA_API_TOKEN', '')).strip()
 FOOTBALL_API_BASE = 'https://api.football-data.org/v4'
 
