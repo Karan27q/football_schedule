@@ -112,4 +112,4 @@ flask --app app seed-db
 
 ## License
 
-MIT (or your preferred license)
+MIT (
