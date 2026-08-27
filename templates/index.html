@@ -1,71 +1,200 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="calendar-controls">
-	<a class="btn" href="{{ url_for('calendar_view', year=prev_year, month=prev_month) }}">◀ Prev</a>
-	<h2>{{ year }} - {{ '%02d' % month }}</h2>
-	<a class="btn" href="{{ url_for('calendar_view', year=next_year, month=next_month) }}">Next ▶</a>
+
+{% if is_demo_mode %}
+  <div class="demo-banner">
+    <div>
+      <div class="demo-title">⚡ Instant Demo Mode Active</div>
+      <div style="font-size: 13px; color: var(--text-muted);">
+        No API key required! Select any top club below to load realistic fixtures, stats & calendar export immediately.
+      </div>
+    </div>
+    <div class="demo-pills">
+      <button class="demo-pill-btn" data-team-id="57">Arsenal</button>
+      <button class="demo-pill-btn" data-team-id="86">Real Madrid</button>
+      <button class="demo-pill-btn" data-team-id="81">Barcelona</button>
+      <button class="demo-pill-btn" data-team-id="65">Man City</button>
+      <button class="demo-pill-btn" data-team-id="5">Bayern</button>
+      <button class="demo-pill-btn" data-team-id="524">PSG</button>
+    </div>
+  </div>
+{% endif %}
+
+<div class="dashboard-header">
+  <div class="month-nav">
+    <a class="btn" href="{{ url_for('calendar_view', year=prev_year, month=prev_month) }}">◀ Prev</a>
+    <h2 class="month-title">{{ year }} - {{ '%02d' % month }}</h2>
+    <a class="btn" href="{{ url_for('calendar_view', year=next_year, month=next_month) }}">Next ▶</a>
+  </div>
+
+  <div class="view-tabs">
+    <button class="tab-btn active" data-view="calendar">📅 Calendar Grid</button>
+    <button class="tab-btn" data-view="list">📋 Fixture List</button>
+    <button class="tab-btn" data-view="stats">📊 Stats Overview</button>
+  </div>
 </div>
 
 {% if selected_team_id %}
-	<p class="selected-team">Selected team: <strong>{{ selected_team_name }}</strong></p>
+  <div class="filter-bar">
+    <div class="filter-group">
+      <div style="font-size: 16px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+        <span>Club: <strong style="color: var(--accent-blue);">{{ selected_team_name }}</strong></span>
+        <a class="btn btn-sm" href="{{ url_for('clear_team') }}">← Change Club</a>
+      </div>
+
+      
+      {% if competitions %}
+        <select id="comp-filter" class="select-custom">
+          <option value="ALL">All Competitions ({{ competitions|length }})</option>
+          {% for comp in competitions %}
+            <option value="{{ comp }}">{{ comp }}</option>
+          {% endfor %}
+        </select>
+      {% endif %}
+
+      <input id="match-search-input" type="text" class="select-custom" placeholder="Filter opponents..." style="width: 160px;">
+    </div>
+
+    <div class="filter-group">
+      <a class="btn btn-sm" href="{{ url_for('export_ics', year=year, month=month) }}">
+        📥 Export .ics Calendar
+      </a>
+    </div>
+  </div>
+
+  <!-- STATS WIDGETS -->
+  <div id="stats-summary" class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Fixtures</div>
+      <div class="stat-value" id="stat-total">{{ total_count }}</div>
+    </div>
+    <div class="stat-card accent-green">
+      <div class="stat-label">Matches Watched</div>
+      <div class="stat-value" id="stat-watched">{{ watched_count }}</div>
+    </div>
+    <div class="stat-card accent-amber">
+      <div class="stat-label">Watched Ratio</div>
+      <div class="stat-value" id="stat-pct">{{ completion_pct }}%</div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="stat-progress" style="width: {{ completion_pct }}%;"></div>
+      </div>
+    </div>
+  </div>
+
 {% else %}
-	<!-- Club grid: replaced the empty-state with a grid of club cards. JS will populate -->
-	<div id="club-grid" class="club-grid">
-		<p class="muted">Select a club to preview this month's calendar. Loading clubs…</p>
-	</div>
+  <div class="club-section-title">⭐ Select a Popular Club to View Fixtures</div>
+  <div id="club-grid" class="club-grid">
+    <div style="color: var(--text-muted);">Loading popular clubs...</div>
+  </div>
 {% endif %}
 
 {% if api_error %}
-	<div class="flash danger">{{ api_error }}</div>
+  <div class="flash info">{{ api_error }}</div>
 {% endif %}
 
-{% if selected_team_id %}
-	<!-- Debug info -->
-	<div style="font-size: 12px; color: #666; margin-bottom: 10px;">
-		Debug: {{ matches_by_day|length }} days with matches, {{ matches_by_day.keys()|list|length }} total
-	</div>
-{% endif %}
+<!-- VIEW 1: CALENDAR GRID -->
+<div id="view-calendar" class="calendar-wrapper view-section">
+  <table class="calendar">
+    <thead>
+      <tr>
+        <th>Mon</th>
+        <th>Tue</th>
+        <th>Wed</th>
+        <th>Thu</th>
+        <th>Fri</th>
+        <th>Sat</th>
+        <th>Sun</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for week in rows %}
+      <tr>
+        {% for day in week %}
+          {% set is_current_month = (day.month == month) %}
+          <td class="day {% if not is_current_month %}other-month{% endif %}">
+            <div class="date-label">{{ day.day }}</div>
+            <div class="matches">
+              {% for m in matches_by_day.get(day, []) %}
+                <div class="match {% if m.watched %}watched{% endif %}" data-comp="{{ m.competition or '' }}" data-search="{{ m.home_team|lower }} vs {{ m.away_team|lower }}">
+                  <div class="match-header">
+                    <input type="checkbox" class="watch-checkbox" data-external-id="{{ m.external_id }}" {% if m.watched %}checked{% endif %}>
+                    <span class="match-teams">{{ m.home_team }} vs {{ m.away_team }}</span>
+                  </div>
+                  <div class="match-meta">
+                    {% if m.kickoff_time %}
+                      <span>@ {{ m.kickoff_time.strftime('%H:%M') }}</span>
+                    {% endif %}
+                    {% if m.competition %}
+                      <span class="badge-comp">{{ m.competition }}</span>
+                    {% endif %}
+                    {% if m.is_local %}
+                      <span class="badge-local">Custom</span>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 
-<table class="calendar">
-	<thead>
-		<tr>
-			<th>Mon</th>
-			<th>Tue</th>
-			<th>Wed</th>
-			<th>Thu</th>
-			<th>Fri</th>
-			<th>Sat</th>
-			<th>Sun</th>
-		</tr>
-	</thead>
-	<tbody>
-		{% for week in rows %}
-		<tr>
-			{% for day in week %}
-				{% set is_current_month = (day.month == month) %}
-				<td class="day {% if not is_current_month %}other-month{% endif %}">
-					<div class="date-label">{{ day.day }}</div>
-					<div class="matches">
-						{% for m in matches_by_day.get(day, []) %}
-							<div class="match {% if m.watched %}watched{% endif %}">
-								<label class="watch-toggle">
-									<input type="checkbox" data-external-id="{{ m.external_id }}" {% if m.watched %}checked{% endif %} {% if not selected_team_id %}disabled{% endif %}>
-									<span class="check"></span>
-								</label>
-								<span class="teams">{{ m.home_team }} vs {{ m.away_team }}</span>
-								{% if m.kickoff_time %}
-									<span class="kickoff">@ {{ m.kickoff_time.strftime('%H:%M') }}</span>
-								{% endif %}
-								{% if m.competition %}
-									<span class="competition">• {{ m.competition }}</span>
-								{% endif %}
-							</div>
-						{% endfor %}
-					</div>
-				</td>
-			{% endfor %}
-		</tr>
-		{% endfor %}
-	</tbody>
-</table>
+<!-- VIEW 2: FIXTURE LIST -->
+<div id="view-list" class="view-section" style="display: none;">
+  {% if matches %}
+    <div class="fixture-list">
+      {% for m in matches %}
+        <div class="fixture-card match-item" data-comp="{{ m.competition or '' }}" data-search="{{ m.home_team|lower }} vs {{ m.away_team|lower }}">
+          <div class="fixture-date-box">
+            <div class="fixture-day">{{ m.match_date.strftime('%d') }}</div>
+            <div class="fixture-month">{{ m.match_date.strftime('%b') }}</div>
+          </div>
+
+          <div class="fixture-teams-box">
+            <div class="fixture-team home">{{ m.home_team }}</div>
+            <div class="fixture-vs">VS</div>
+            <div class="fixture-team away">{{ m.away_team }}</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px;">
+            {% if m.kickoff_time %}
+              <div style="font-size: 13px; color: var(--text-muted);">
+                🕒 {{ m.kickoff_time.strftime('%H:%M') }} UTC
+              </div>
+            {% endif %}
+            {% if m.competition %}
+              <span class="badge-comp">{{ m.competition }}</span>
+            {% endif %}
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+              <input type="checkbox" class="watch-checkbox" data-external-id="{{ m.external_id }}" {% if m.watched %}checked{% endif %}>
+              <span style="color: var(--text-muted);">Watched</span>
+            </label>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 40px; color: var(--text-muted); background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+      No matches found for this view. Select a club above to display fixtures.
+    </div>
+  {% endif %}
+</div>
+
+<!-- VIEW 3: STATS OVERVIEW -->
+<div id="view-stats" class="view-section" style="display: none;">
+  <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px;">
+    <h3 style="margin-bottom: 16px; font-family: 'Outfit', sans-serif;">Competition Watched Breakdown</h3>
+    <div id="comp-breakdown-list">
+      {% if matches %}
+        <p style="color: var(--text-muted); font-size: 14px;">Toggle watched checkboxes to see live competition tracking metrics.</p>
+      {% else %}
+        <p style="color: var(--text-muted); font-size: 14px;">Select a club to generate competition analytics.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 {% endblock %}

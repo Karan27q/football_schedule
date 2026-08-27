@@ -1,36 +1,63 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>Football Match Calendar</title>
-		<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-	</head>
-	<body>
-		<header class="topbar">
-			<h1><a href="{{ url_for('calendar_view') }}">Football Match Calendar</a></h1>
-			<nav class="toolbar">
-				<form id="team-select-form" method="post" action="{{ url_for('team_select') }}" class="team-select">
-					<input id="team-search" name="q" type="text" placeholder="Search team..." autocomplete="off">
-					<input type="hidden" name="team_id" id="team_id">
-					<input type="hidden" name="team_name" id="team_name">
-					<button type="submit" class="btn">Select</button>
-				</form>
-				<a class="btn" href="{{ url_for('create_match') }}">Add Match</a>
-			</nav>
-		</header>
-		<main class="container">
-			{% with messages = get_flashed_messages(with_categories=true) %}
-				{% if messages %}
-					<ul class="flashes">
-						{% for category, message in messages %}
-							<li class="flash {{ category }}">{{ message }}</li>
-						{% endfor %}
-					</ul>
-				{% endif %}
-			{% endwith %}
-			{% block content %}{% endblock %}
-		</main>
-		<script src="{{ url_for('static', filename='app.js') }}"></script>
-	</body>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Football Match Calendar | Fixtures & Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-container">
+        <a href="{{ url_for('clear_team') }}" class="brand-link" title="Return to Home & All Clubs">
+          <span class="brand-icon">⚽</span>
+          <span class="brand-title">Football Calendar</span>
+        </a>
+
+        <nav class="toolbar">
+          <a class="btn btn-sm" href="{{ url_for('clear_team') }}">
+            🏠 All Clubs
+          </a>
+
+          <form id="team-select-form" method="post" action="{{ url_for('team_select') }}" class="team-select">
+
+            <div class="search-input-wrapper">
+              <svg class="search-icon-svg" viewBox="0 0 24 24">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+              <input id="team-search" name="q" type="text" placeholder="Search any club..." autocomplete="off">
+            </div>
+            <input type="hidden" name="team_id" id="team_id">
+            <input type="hidden" name="team_name" id="team_name">
+            <button type="submit" class="btn btn-primary btn-sm">Select</button>
+          </form>
+
+          <a class="btn btn-accent" href="{{ url_for('create_match') }}">
+            <span>+</span> Add Custom Match
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul class="flashes">
+            {% for category, message in messages %}
+              <li class="flash {{ category }}">
+                <span>{{ message }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
 </html>

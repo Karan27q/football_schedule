@@ -32,7 +32,9 @@ football_calendar.db
 
 # Env files for secrets
 .env
-.env.*
+.env.local
+
+
 
 # VS Code and IDEs
 .vscode/

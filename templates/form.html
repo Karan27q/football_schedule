@@ -1,30 +1,37 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>{% if mode == 'create' %}Add Match{% else %}Edit Match{% endif %}</h2>
-<form method="post" class="form">
-	<div class="field">
-		<label for="match_date">Date</label>
-		<input id="match_date" name="match_date" type="date" value="{{ (match.match_date if match else None) or '' }}" required>
-	</div>
-	<div class="field">
-		<label for="kickoff_time">Kickoff Time</label>
-		<input id="kickoff_time" name="kickoff_time" type="time" value="{{ (match.kickoff_time.strftime('%H:%M') if match and match.kickoff_time else '') }}">
-	</div>
-	<div class="field">
-		<label for="home_team">Home Team</label>
-		<input id="home_team" name="home_team" type="text" value="{{ (match.home_team if match else '') }}" required>
-	</div>
-	<div class="field">
-		<label for="away_team">Away Team</label>
-		<input id="away_team" name="away_team" type="text" value="{{ (match.away_team if match else '') }}" required>
-	</div>
-	<div class="field">
-		<label for="competition">Competition</label>
-		<input id="competition" name="competition" type="text" value="{{ (match.competition if match else '') }}">
-	</div>
-	<div class="actions">
-		<button type="submit" class="btn primary">{% if mode == 'create' %}Create{% else %}Save{% endif %}</button>
-		<a class="btn" href="{{ url_for('calendar_view') }}">Cancel</a>
-	</div>
-</form>
+<div class="form-card">
+  <h2 class="form-title">{% if mode == 'create' %}➕ Add Custom Match{% else %}✏️ Edit Match{% endif %}</h2>
+  <form method="post">
+    <div class="field">
+      <label for="match_date">Match Date *</label>
+      <input id="match_date" name="match_date" type="date" value="{{ (match.match_date if match else None) or '' }}" required>
+    </div>
+
+    <div class="field">
+      <label for="kickoff_time">Kickoff Time (UTC)</label>
+      <input id="kickoff_time" name="kickoff_time" type="time" value="{{ (match.kickoff_time.strftime('%H:%M') if match and match.kickoff_time else '') }}">
+    </div>
+
+    <div class="field">
+      <label for="home_team">Home Team Name *</label>
+      <input id="home_team" name="home_team" type="text" placeholder="e.g. Arsenal" value="{{ (match.home_team if match else '') }}" required>
+    </div>
+
+    <div class="field">
+      <label for="away_team">Away Team Name *</label>
+      <input id="away_team" name="away_team" type="text" placeholder="e.g. Chelsea" value="{{ (match.away_team if match else '') }}" required>
+    </div>
+
+    <div class="field">
+      <label for="competition">Competition Name</label>
+      <input id="competition" name="competition" type="text" placeholder="e.g. Premier League or Friendly" value="{{ (match.competition if match else '') }}">
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if mode == 'create' %}Create Fixture{% else %}Save Changes{% endif %}</button>
+      <a class="btn" href="{{ url_for('calendar_view') }}">Cancel</a>
+    </div>
+  </form>
+</div>
 {% endblock %}
