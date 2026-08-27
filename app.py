@@ -3,12 +3,16 @@ import calendar
 from dateutil import parser as date_parser
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, Response
 from flask_sqlalchemy import SQLAlchemy
+import logging
 import os
 import requests
 import time as time_module
 from dotenv import load_dotenv
 load_dotenv()
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-football-calendar-2026')
@@ -21,13 +25,6 @@ FOOTBALL_API_TOKEN = (HARDCODED_FOOTBALL_API_TOKEN or os.environ.get('FOOTBALL_D
 FOOTBALL_API_BASE = 'https://api.football-data.org/v4'
 
 db = SQLAlchemy(app)
-
-# Ensure tables exist when the app module loads
-with app.app_context():
-    try:
-        db.create_all()
-    except Exception as e:
-        print(f"DEBUG: Failed to create tables on startup: {e}")
 
 
 class TTLCache:
@@ -74,6 +71,14 @@ class WatchedMatch(db.Model):
     """Stores watched flags for external API matches by their external id."""
     external_id = db.Column(db.String(64), primary_key=True)
     watched = db.Column(db.Boolean, default=False, nullable=False)
+
+
+# Ensure database tables are created
+with app.app_context():
+    try:
+        db.create_all()
+    except Exception as e:
+        logger.error("Failed creating database tables on startup", exc_info=True)
 
 
 # Curated Popular Mock Teams for seamless offline/tokenless execution
@@ -180,7 +185,7 @@ def api_get(path: str, params: dict | None = None) -> dict:
     if r.status_code == 429:
         raise RuntimeError('API rate limit reached. Using cached or fallback fixtures.')
     if r.status_code >= 400:
-        raise RuntimeError(f"API error {r.status_code}: {r.text}")
+        raise RuntimeError(f"API HTTP error {r.status_code}")
     data = r.json()
     api_cache.set(cache_key, data)
     return data
@@ -210,7 +215,7 @@ def search_teams(query: str) -> list[dict]:
                 if matched_api:
                     return matched_api[:20]
         except Exception as e:
-            print(f"DEBUG: API team search failed, using mock matches: {e}")
+            logger.warning("API team search failed, falling back to mock matches", exc_info=True)
 
     return matched_mock[:20]
 
@@ -226,7 +231,10 @@ def fetch_team_matches(team_id: int, start_date: date, end_date: date) -> list[d
         try:
             params = {'dateFrom': start_date.isoformat(), 'dateTo': end_date.isoformat()}
             data = api_get(f'/teams/{team_id}/matches', params=params)
-            watched_map = {wm.external_id: wm.watched for wm in WatchedMatch.query}
+            try:
+                watched_map = {wm.external_id: wm.watched for wm in WatchedMatch.query}
+            except Exception:
+                watched_map = {}
             for m in data.get('matches', []):
                 try:
                     utc_date = date_parser.parse(m['utcDate'])
@@ -242,11 +250,11 @@ def fetch_team_matches(team_id: int, start_date: date, end_date: date) -> list[d
                         'is_mock': False,
                     })
                 except Exception as ex:
-                    print(f"DEBUG: Parse error: {ex}")
+                    logger.warning(f"Parse error on match: {ex}")
             api_cache.set(cache_key, matches)
             return matches
         except Exception as e:
-            print(f"DEBUG: API fetch error for team {team_id}: {e}. Falling back to mock fixtures.")
+            logger.warning(f"API fetch error for team {team_id}, falling back to mock fixtures: {e}")
 
     matches = generate_mock_matches(team_id, start_date, end_date)
     api_cache.set(cache_key, matches)
@@ -281,22 +289,26 @@ def calendar_view():
             if not matches:
                 api_error = f'No scheduled matches found for {selected_team_name} in {year}-{month:02d}.'
         except Exception as e:
-            api_error = f"Notice: {str(e)}"
+            logger.error("Error loading team matches", exc_info=True)
+            api_error = "Notice: Unable to fetch live match data. Displaying fallback fixtures."
             matches = generate_mock_matches(int(selected_team_id), start_date, end_date)
 
-    local_matches = Match.query.filter(Match.match_date >= start_date, Match.match_date <= end_date).all()
-    for lm in local_matches:
-        matches.append({
-            'external_id': f"local_{lm.id}",
-            'local_id': lm.id,
-            'match_date': lm.match_date,
-            'kickoff_time': lm.kickoff_time,
-            'home_team': lm.home_team,
-            'away_team': lm.away_team,
-            'competition': lm.competition or 'Custom Match',
-            'watched': lm.watched,
-            'is_local': True,
-        })
+    try:
+        local_matches = Match.query.filter(Match.match_date >= start_date, Match.match_date <= end_date).all()
+        for lm in local_matches:
+            matches.append({
+                'external_id': f"local_{lm.id}",
+                'local_id': lm.id,
+                'match_date': lm.match_date,
+                'kickoff_time': lm.kickoff_time,
+                'home_team': lm.home_team,
+                'away_team': lm.away_team,
+                'competition': lm.competition or 'Custom Match',
+                'watched': lm.watched,
+                'is_local': True,
+            })
+    except Exception as e:
+        logger.error("Failed querying local matches", exc_info=True)
 
     matches_by_day = _group_matches_by_day(matches)
     competitions = sorted(list({m.get('competition') for m in matches if m.get('competition')}))
@@ -334,6 +346,14 @@ def calendar_view():
     )
 
 
+@app.route('/clear-team')
+@app.route('/home')
+def clear_team():
+    """Clears selected club and returns to the home page with all popular clubs."""
+    session.pop('selected_team_id', None)
+    session.pop('selected_team_name', None)
+    return redirect(url_for('calendar_view'))
+
 
 @app.route('/teams/search')
 def teams_search():
@@ -344,16 +364,8 @@ def teams_search():
         teams = search_teams(q)
         return jsonify({'teams': teams})
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-
-@app.route('/clear-team')
-@app.route('/home')
-def clear_team():
-    """Clears selected club and returns to the home page with all popular clubs."""
-    session.pop('selected_team_id', None)
-    session.pop('selected_team_name', None)
-    return redirect(url_for('calendar_view'))
+        logger.error("Team search endpoint error", exc_info=True)
+        return jsonify({'error': 'Team search failed'}), 400
 
 
 @app.route('/clubs/popular')
@@ -383,7 +395,7 @@ def clubs_popular():
                         'league': 'Official API'
                     })
         except Exception as e:
-            print(f"DEBUG: API popular clubs failed, using fallback mock: {e}")
+            logger.warning("API popular clubs failed, using fallback mock", exc_info=True)
 
     # Append fallback mock clubs that aren't already in out
     for mt in MOCK_TEAMS:
@@ -396,7 +408,6 @@ def clubs_popular():
     return jsonify({'teams': out})
 
 
-
 @app.route('/teams/select', methods=['POST'])
 def team_select():
     team_id = request.form.get('team_id')
@@ -405,14 +416,19 @@ def team_select():
 
     if not team_id or not team_name:
         if q and len(q) >= 2:
-            candidates = search_teams(q)
-            exact = next((t for t in candidates if t.get('name', '').lower() == q.lower()), None)
-            chosen = exact or (candidates[0] if len(candidates) >= 1 else None)
-            if chosen:
-                team_id = str(chosen['id'])
-                team_name = chosen['name']
-            else:
-                flash('Please select a team from suggestions.', 'danger')
+            try:
+                candidates = search_teams(q)
+                exact = next((t for t in candidates if t.get('name', '').lower() == q.lower()), None)
+                chosen = exact or (candidates[0] if len(candidates) >= 1 else None)
+                if chosen:
+                    team_id = str(chosen['id'])
+                    team_name = chosen['name']
+                else:
+                    flash('Please select a team from suggestions.', 'danger')
+                    return redirect(url_for('calendar_view'))
+            except Exception as e:
+                logger.error("Team auto-selection failed", exc_info=True)
+                flash('Unable to resolve team name.', 'danger')
                 return redirect(url_for('calendar_view'))
         else:
             flash('Invalid team selection.', 'danger')
@@ -435,23 +451,27 @@ def demo_team():
 
 @app.route('/matches/<external_id>/toggle', methods=['POST'])
 def toggle_watched_external(external_id: str):
-    if external_id.startswith('local_'):
-        local_id = int(external_id.replace('local_', ''))
-        m = db.session.get(Match, local_id)
-        if not m:
-            return jsonify({'error': 'Match not found'}), 404
-        m.watched = not m.watched
-        db.session.commit()
-        return jsonify({'ok': True, 'watched': m.watched})
+    try:
+        if external_id.startswith('local_'):
+            local_id = int(external_id.replace('local_', ''))
+            m = db.session.get(Match, local_id)
+            if not m:
+                return jsonify({'error': 'Match not found'}), 404
+            m.watched = not m.watched
+            db.session.commit()
+            return jsonify({'ok': True, 'watched': m.watched})
 
-    wm = db.session.get(WatchedMatch, external_id)
-    if wm is None:
-        wm = WatchedMatch(external_id=external_id, watched=True)
-        db.session.add(wm)
-    else:
-        wm.watched = not wm.watched
-    db.session.commit()
-    return jsonify({'ok': True, 'watched': wm.watched})
+        wm = db.session.get(WatchedMatch, external_id)
+        if wm is None:
+            wm = WatchedMatch(external_id=external_id, watched=True)
+            db.session.add(wm)
+        else:
+            wm.watched = not wm.watched
+        db.session.commit()
+        return jsonify({'ok': True, 'watched': wm.watched})
+    except Exception as e:
+        logger.error(f"Error toggling match {external_id}", exc_info=True)
+        return jsonify({'error': 'Toggle failed'}), 500
 
 
 @app.route('/api/stats')
@@ -468,12 +488,15 @@ def api_stats():
         except Exception:
             matches = generate_mock_matches(int(selected_team_id), start_date, end_date)
 
-    local_matches = Match.query.filter(Match.match_date >= start_date, Match.match_date <= end_date).all()
-    for lm in local_matches:
-        matches.append({
-            'competition': lm.competition or 'Custom Match',
-            'watched': lm.watched,
-        })
+    try:
+        local_matches = Match.query.filter(Match.match_date >= start_date, Match.match_date <= end_date).all()
+        for lm in local_matches:
+            matches.append({
+                'competition': lm.competition or 'Custom Match',
+                'watched': lm.watched,
+            })
+    except Exception as e:
+        logger.error("Failed fetching local matches for stats", exc_info=True)
 
     total = len(matches)
     watched = sum(1 for m in matches if m.get('watched'))
@@ -577,7 +600,8 @@ def create_match():
             flash('Match added successfully', 'success')
             return redirect(url_for('calendar_view', year=match_date.year, month=match_date.month))
         except Exception as e:
-            flash(f'Error: {e}', 'danger')
+            logger.error("Error creating match", exc_info=True)
+            flash('Failed to create match. Check input values.', 'danger')
     return render_template('form.html', mode='create')
 
 
@@ -607,7 +631,8 @@ def edit_match(match_id: int):
             flash('Match updated successfully', 'success')
             return redirect(url_for('calendar_view', year=m.match_date.year, month=m.match_date.month))
         except Exception as e:
-            flash(f'Error: {e}', 'danger')
+            logger.error("Error updating match", exc_info=True)
+            flash('Failed to update match. Check input values.', 'danger')
     return render_template('form.html', mode='edit', match=m)
 
 
@@ -649,4 +674,5 @@ def seed_db_command():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, port=5000)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
+    app.run(debug=debug_mode, host='127.0.0.1', port=5000)
